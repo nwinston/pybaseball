@@ -10,6 +10,7 @@ from ..enums.fangraphs import (FangraphsBattingStats, FangraphsFieldingStats, Fa
                                FangraphsPitchingStats, FangraphsPositions, FangraphsStatColumn, FangraphsStatsCategory,
                                stat_list_from_str, stat_list_to_str)
 from .html_table_processor import HTMLTableProcessor, RowIdFunction
+from ..enums.fangraphs.fangraphs_stats_group import FangraphsStatsGroup
 
 _FG_LEADERS_URL = "/leaders.aspx"
 
@@ -48,6 +49,7 @@ class FangraphsDataTable(ABC):
     KNOWN_PERCENTAGES: List[str] = []
     ROW_ID_FUNC: RowIdFunction = None
     ROW_ID_NAME: Optional[str] = None
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.PLAYER
     TEAM_DATA: bool = False
     COLUMN_NAME_MAPPER: ColumnListMapperFunction = GenericColumnMapper().map_list
 
@@ -131,6 +133,18 @@ class FangraphsDataTable(ABC):
         if league is None:
             raise ValueError("parameter 'league' cannot be None.")
 
+        group_option = ''
+        if self.GROUP == FangraphsStatsGroup.TEAM:
+            group_option = ',ts'
+        elif self.GROUP == FangraphsStatsGroup.LEAGUE:
+            group_option = ',ss'
+
+        if not team:
+            team = '0'
+
+        team_option_str = f'{team or 0}' if self.GROUP == FangraphsStatsGroup.TEAM else team
+        team_option_str += group_option
+
         url_options = {
             'pos': FangraphsPositions.parse(position).value,
             'stats': self.STATS_CATEGORY.value,
@@ -141,7 +155,7 @@ class FangraphsDataTable(ABC):
             'month': FangraphsMonth.parse(month).value,
             'season1': start_season,
             'ind': ind if ind == 0 and split_seasons else int(split_seasons),
-            'team':  f'{team or 0},ts' if self.TEAM_DATA else team,
+            'team': team_option_str,
             'rost': int(on_active_roster),
             'age': f"{minimum_age},{maximum_age}",
             'filter': _filter,
@@ -214,23 +228,48 @@ class FangraphsTeamBattingDataTable(FangraphsDataTable):
     STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.BATTING
     DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsBattingStats.ALL()
     COLUMN_NAME_MAPPER: ColumnListMapperFunction = BattingStatsColumnMapper().map_list
-    TEAM_DATA: bool = True
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.TEAM
     ROW_ID_FUNC: RowIdFunction = team_row_id_func
     ROW_ID_NAME = 'teamIDfg'
 
 class FangraphsTeamFieldingDataTable(FangraphsDataTable):
     STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.FIELDING
     DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsFieldingStats.ALL()
-    TEAM_DATA: bool = True
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.TEAM
     ROW_ID_FUNC: RowIdFunction = team_row_id_func
     ROW_ID_NAME = 'teamIDfg'
 
 class FangraphsTeamPitchingDataTable(FangraphsDataTable):
     STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.PITCHING
     DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsPitchingStats.ALL()
-    TEAM_DATA: bool = True
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.TEAM
     ROW_ID_FUNC: RowIdFunction = team_row_id_func
     ROW_ID_NAME = 'teamIDfg'
+
+class FangraphsLeagueBattingDataTable(FangraphsDataTable):
+    STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.BATTING
+    DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsBattingStats.ALL()
+    COLUMN_NAME_MAPPER: ColumnListMapperFunction = BattingStatsColumnMapper().map_list
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.LEAGUE
+    ROW_ID_FUNC: RowIdFunction = None
+    ROW_ID_NAME = None
+
+
+class FangraphsLeaguePitchingDataTable(FangraphsDataTable):
+    STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.PITCHING
+    DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsPitchingStats.ALL()
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.LEAGUE
+    ROW_ID_FUNC: RowIdFunction = None
+    ROW_ID_NAME = None
+
+
+class FangraphsLeagueFieldingDataTable(FangraphsDataTable):
+    STATS_CATEGORY: FangraphsStatsCategory = FangraphsStatsCategory.FIELDING
+    DEFAULT_STAT_COLUMNS: List[FangraphsStatColumn] = FangraphsFieldingStats.ALL()
+    GROUP: FangraphsStatsGroup = FangraphsStatsGroup.LEAGUE
+    ROW_ID_FUNC: RowIdFunction = None
+    ROW_ID_NAME = None
+
 
 fg_batting_data = FangraphsBattingStatsTable().fetch
 fg_fielding_data = FangraphsFieldingStatsTable().fetch
